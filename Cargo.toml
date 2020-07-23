@@ -1,0 +1,21 @@
+[package]
+name = "base32"
+version = "0.1.0"
+authors = ["Gard Kylling <gard@kylling.io>"]
+edition = "2018"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["std"]
+alloc = []
+std = []
+
+[dev-dependencies]
+criterion = "0.3.3"
+rand = "0.7.3"
+
+[[bench]]
+name = "benchmark"
+harness = false
