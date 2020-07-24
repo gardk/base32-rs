@@ -44,13 +44,13 @@ impl Encoding {
         if self.pad.is_some() {
             bytes
                 .checked_add(4)
-                .and_then(|n| Some(n / 5))
+                .map(|n| n / 5)
                 .and_then(|n| n.checked_mul(8))
         } else {
             bytes
                 .checked_mul(8)
                 .and_then(|n| n.checked_add(4))
-                .and_then(|n| Some(n / 5))
+                .map(|n| n / 5)
         }
         .expect("Overflow while calculating encoded length")
     }
@@ -215,20 +215,20 @@ impl Encoding {
                     output_index += 1;
                 }
                 3 => {
-                    output[output_index + 0] = pad;
+                    output[output_index] = pad;
                     output[output_index + 1] = pad;
                     output[output_index + 2] = pad;
                     output_index += 3;
                 }
                 2 => {
-                    output[output_index + 0] = pad;
+                    output[output_index] = pad;
                     output[output_index + 1] = pad;
                     output[output_index + 2] = pad;
                     output[output_index + 3] = pad;
                     output_index += 4;
                 }
                 1 => {
-                    output[output_index + 0] = pad;
+                    output[output_index] = pad;
                     output[output_index + 1] = pad;
                     output[output_index + 2] = pad;
                     output[output_index + 3] = pad;

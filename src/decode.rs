@@ -76,7 +76,7 @@ impl Encoding {
         if self.pad.is_some() {
             (bytes / 8).checked_mul(5)
         } else {
-            bytes.checked_mul(5).and_then(|n| Some(n / 8))
+            bytes.checked_mul(5).map(|n| n / 8)
         }
         .expect("Overflow while calculating decoded length")
     }
