@@ -1,6 +1,5 @@
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use alloc::{string::String, vec};
-use core::convert::TryInto;
 
 use crate::Encoding;
 
@@ -9,6 +8,7 @@ use crate::Encoding;
 /// assert_eq!(base32::encode("foobar"), "MZXW6YTBOI======");
 /// ```
 #[cfg(any(feature = "alloc", feature = "std", test))]
+#[inline]
 pub fn encode(data: impl AsRef<[u8]>) -> String {
     crate::STANDARD.encode(data)
 }
@@ -33,13 +33,19 @@ impl Encoding {
 
         let mut buf = vec![0; self.encoded_size(data.len())];
         let written = self.encode_to_slice(&mut buf, data);
+        let written = self.add_padding(&mut buf[written..], data.len()) + written;
+
         debug_assert_eq!(written, buf.len());
 
-        String::from_utf8(buf).expect("Encoded output should always be UTF-8 compatible")
+        // SAFETY: Since all possible encoding tables are defined statically with valid
+        //         ASCII characters, the encoding procedure can't produce invalid UTF-8
+        debug_assert!(buf.iter().all(u8::is_ascii));
+        unsafe { String::from_utf8_unchecked(buf) }
     }
 
     /// Calculates the bytes required to store the encoded form of an
     /// amount of bytes. Panics if the result would overflow `usize`.
+    #[inline]
     pub fn encoded_size(&self, bytes: usize) -> usize {
         if self.pad.is_some() {
             bytes
@@ -68,54 +74,54 @@ impl Encoding {
 
         if last_fast_index > 0 {
             while input_index <= last_fast_index {
-                let output_chunk = &mut output[output_index..output_index + OUTPUT_BLOCK_LEN];
-                let input_chunk =
+                let output_block = &mut output[output_index..output_index + OUTPUT_BLOCK_LEN];
+                let input_block =
                     &input[input_index..input_index + INPUT_BLOCK_LEN + INPUT_BLOCK_OVERHEAD];
 
                 let batch = [
-                    u64::from_be_bytes((&input_chunk[0..8]).try_into().unwrap()),
-                    u64::from_be_bytes((&input_chunk[5..13]).try_into().unwrap()),
-                    u64::from_be_bytes((&input_chunk[10..18]).try_into().unwrap()),
-                    u64::from_be_bytes((&input_chunk[15..23]).try_into().unwrap()),
+                    read_u64(&input_block[0..]),
+                    read_u64(&input_block[5..]),
+                    read_u64(&input_block[10..]),
+                    read_u64(&input_block[15..]),
                 ];
 
                 const LOW_FIVE_BITS: u64 = 0b11111;
 
-                output_chunk[0] = encode_table[((batch[0] >> 59) & LOW_FIVE_BITS) as usize];
-                output_chunk[1] = encode_table[((batch[0] >> 54) & LOW_FIVE_BITS) as usize];
-                output_chunk[2] = encode_table[((batch[0] >> 49) & LOW_FIVE_BITS) as usize];
-                output_chunk[3] = encode_table[((batch[0] >> 44) & LOW_FIVE_BITS) as usize];
-                output_chunk[4] = encode_table[((batch[0] >> 39) & LOW_FIVE_BITS) as usize];
-                output_chunk[5] = encode_table[((batch[0] >> 34) & LOW_FIVE_BITS) as usize];
-                output_chunk[6] = encode_table[((batch[0] >> 29) & LOW_FIVE_BITS) as usize];
-                output_chunk[7] = encode_table[((batch[0] >> 24) & LOW_FIVE_BITS) as usize];
+                output_block[0] = encode_table[((batch[0] >> 59) & LOW_FIVE_BITS) as usize];
+                output_block[1] = encode_table[((batch[0] >> 54) & LOW_FIVE_BITS) as usize];
+                output_block[2] = encode_table[((batch[0] >> 49) & LOW_FIVE_BITS) as usize];
+                output_block[3] = encode_table[((batch[0] >> 44) & LOW_FIVE_BITS) as usize];
+                output_block[4] = encode_table[((batch[0] >> 39) & LOW_FIVE_BITS) as usize];
+                output_block[5] = encode_table[((batch[0] >> 34) & LOW_FIVE_BITS) as usize];
+                output_block[6] = encode_table[((batch[0] >> 29) & LOW_FIVE_BITS) as usize];
+                output_block[7] = encode_table[((batch[0] >> 24) & LOW_FIVE_BITS) as usize];
 
-                output_chunk[8] = encode_table[((batch[1] >> 59) & LOW_FIVE_BITS) as usize];
-                output_chunk[9] = encode_table[((batch[1] >> 54) & LOW_FIVE_BITS) as usize];
-                output_chunk[10] = encode_table[((batch[1] >> 49) & LOW_FIVE_BITS) as usize];
-                output_chunk[11] = encode_table[((batch[1] >> 44) & LOW_FIVE_BITS) as usize];
-                output_chunk[12] = encode_table[((batch[1] >> 39) & LOW_FIVE_BITS) as usize];
-                output_chunk[13] = encode_table[((batch[1] >> 34) & LOW_FIVE_BITS) as usize];
-                output_chunk[14] = encode_table[((batch[1] >> 29) & LOW_FIVE_BITS) as usize];
-                output_chunk[15] = encode_table[((batch[1] >> 24) & LOW_FIVE_BITS) as usize];
+                output_block[8] = encode_table[((batch[1] >> 59) & LOW_FIVE_BITS) as usize];
+                output_block[9] = encode_table[((batch[1] >> 54) & LOW_FIVE_BITS) as usize];
+                output_block[10] = encode_table[((batch[1] >> 49) & LOW_FIVE_BITS) as usize];
+                output_block[11] = encode_table[((batch[1] >> 44) & LOW_FIVE_BITS) as usize];
+                output_block[12] = encode_table[((batch[1] >> 39) & LOW_FIVE_BITS) as usize];
+                output_block[13] = encode_table[((batch[1] >> 34) & LOW_FIVE_BITS) as usize];
+                output_block[14] = encode_table[((batch[1] >> 29) & LOW_FIVE_BITS) as usize];
+                output_block[15] = encode_table[((batch[1] >> 24) & LOW_FIVE_BITS) as usize];
 
-                output_chunk[16] = encode_table[((batch[2] >> 59) & LOW_FIVE_BITS) as usize];
-                output_chunk[17] = encode_table[((batch[2] >> 54) & LOW_FIVE_BITS) as usize];
-                output_chunk[18] = encode_table[((batch[2] >> 49) & LOW_FIVE_BITS) as usize];
-                output_chunk[19] = encode_table[((batch[2] >> 44) & LOW_FIVE_BITS) as usize];
-                output_chunk[20] = encode_table[((batch[2] >> 39) & LOW_FIVE_BITS) as usize];
-                output_chunk[21] = encode_table[((batch[2] >> 34) & LOW_FIVE_BITS) as usize];
-                output_chunk[22] = encode_table[((batch[2] >> 29) & LOW_FIVE_BITS) as usize];
-                output_chunk[23] = encode_table[((batch[2] >> 24) & LOW_FIVE_BITS) as usize];
+                output_block[16] = encode_table[((batch[2] >> 59) & LOW_FIVE_BITS) as usize];
+                output_block[17] = encode_table[((batch[2] >> 54) & LOW_FIVE_BITS) as usize];
+                output_block[18] = encode_table[((batch[2] >> 49) & LOW_FIVE_BITS) as usize];
+                output_block[19] = encode_table[((batch[2] >> 44) & LOW_FIVE_BITS) as usize];
+                output_block[20] = encode_table[((batch[2] >> 39) & LOW_FIVE_BITS) as usize];
+                output_block[21] = encode_table[((batch[2] >> 34) & LOW_FIVE_BITS) as usize];
+                output_block[22] = encode_table[((batch[2] >> 29) & LOW_FIVE_BITS) as usize];
+                output_block[23] = encode_table[((batch[2] >> 24) & LOW_FIVE_BITS) as usize];
 
-                output_chunk[24] = encode_table[((batch[3] >> 59) & LOW_FIVE_BITS) as usize];
-                output_chunk[25] = encode_table[((batch[3] >> 54) & LOW_FIVE_BITS) as usize];
-                output_chunk[26] = encode_table[((batch[3] >> 49) & LOW_FIVE_BITS) as usize];
-                output_chunk[27] = encode_table[((batch[3] >> 44) & LOW_FIVE_BITS) as usize];
-                output_chunk[28] = encode_table[((batch[3] >> 39) & LOW_FIVE_BITS) as usize];
-                output_chunk[29] = encode_table[((batch[3] >> 34) & LOW_FIVE_BITS) as usize];
-                output_chunk[30] = encode_table[((batch[3] >> 29) & LOW_FIVE_BITS) as usize];
-                output_chunk[31] = encode_table[((batch[3] >> 24) & LOW_FIVE_BITS) as usize];
+                output_block[24] = encode_table[((batch[3] >> 59) & LOW_FIVE_BITS) as usize];
+                output_block[25] = encode_table[((batch[3] >> 54) & LOW_FIVE_BITS) as usize];
+                output_block[26] = encode_table[((batch[3] >> 49) & LOW_FIVE_BITS) as usize];
+                output_block[27] = encode_table[((batch[3] >> 44) & LOW_FIVE_BITS) as usize];
+                output_block[28] = encode_table[((batch[3] >> 39) & LOW_FIVE_BITS) as usize];
+                output_block[29] = encode_table[((batch[3] >> 34) & LOW_FIVE_BITS) as usize];
+                output_block[30] = encode_table[((batch[3] >> 29) & LOW_FIVE_BITS) as usize];
+                output_block[31] = encode_table[((batch[3] >> 24) & LOW_FIVE_BITS) as usize];
 
                 output_index += OUTPUT_BLOCK_LEN;
                 input_index += INPUT_BLOCK_LEN;
@@ -162,7 +168,6 @@ impl Encoding {
                 output_chunk[6] = encode_table[((input_chunk[3] << 3) & LOW_FIVE_BITS) as usize];
 
                 output_index += 7;
-                input_index += 4;
             }
             3 => {
                 let output_chunk = &mut output[output_index..output_index + 5];
@@ -177,7 +182,6 @@ impl Encoding {
                 output_chunk[4] = encode_table[((input_chunk[2] << 1) & LOW_FIVE_BITS) as usize];
 
                 output_index += 5;
-                input_index += 3;
             }
             2 => {
                 let output_chunk = &mut output[output_index..output_index + 4];
@@ -190,7 +194,6 @@ impl Encoding {
                 output_chunk[3] = encode_table[((input_chunk[1] << 4) & LOW_FIVE_BITS) as usize];
 
                 output_index += 4;
-                input_index += 2;
             }
             1 => {
                 let output_chunk = &mut output[output_index..output_index + 2];
@@ -200,7 +203,6 @@ impl Encoding {
                 output_chunk[1] = encode_table[((input_byte << 2) & LOW_FIVE_BITS) as usize];
 
                 output_index += 2;
-                input_index += 1;
             }
             0 => {}
             _ => unreachable!(
@@ -208,8 +210,17 @@ impl Encoding {
             ),
         }
 
+        output_index
+    }
+
+    /// Writes padding characters to the output slice according to the
+    /// input length, does nothing if the configuration disables padding. You
+    /// don't need to call this function unless directly calling `encode_to_slice`.
+    #[inline]
+    pub fn add_padding(&self, output: &mut [u8], input_len: usize) -> usize {
         if let Some(pad) = self.pad {
-            match input_index % 5 {
+            let mut output_index = 0;
+            match input_len % 5 {
                 4 => {
                     output[output_index] = pad;
                     output_index += 1;
@@ -238,8 +249,15 @@ impl Encoding {
                 }
                 _ => {}
             }
+            output_index
+        } else {
+            0
         }
-
-        output_index
     }
+}
+
+#[inline(always)]
+fn read_u64(bytes: &[u8]) -> u64 {
+    use core::convert::TryInto;
+    u64::from_be_bytes(bytes[..8].try_into().unwrap())
 }

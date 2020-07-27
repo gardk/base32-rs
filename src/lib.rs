@@ -10,11 +10,13 @@
 //!
 //! # Panics
 //!
-//! Length calculations are checked and will panic on overflow of `usize`.
+//! Length calculations are checked and will panic on overflow of `usize`, this
+//! applies to any helper function for encoding or decoding data as well as the
+//! length calculation functions themselves.
 //!
 //! Encoding & decoding with the respective `to_slice` methods will panic if the
 //! provided output slice is too small to handle the input, this will not happen
-//! if the accompanying size translation methods are used to allocate them properly.
+//! if the accompanying size translation methods are used to allocate it properly.
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
 #![deny(
     missing_docs,
@@ -27,7 +29,6 @@
     variant_size_differences,
     warnings
 )]
-#![forbid(unsafe_code)]
 
 mod decode;
 mod encode;

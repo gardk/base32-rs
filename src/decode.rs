@@ -15,6 +15,7 @@ use crate::Encoding;
 /// }
 /// ```
 #[cfg(any(feature = "alloc", feature = "std", test))]
+#[inline]
 pub fn decode(data: impl AsRef<[u8]>) -> Result<Vec<u8>, DecodeError> {
     crate::STANDARD.decode(data)
 }
@@ -72,6 +73,7 @@ impl Encoding {
     /// Returns an estimate of how many bytes would be required to store the decoded form
     /// of the given amount of encoded bytes. It will sometimes overestimate how many are
     /// needed, but never underestimate. Panics if the result would overflow `usize`.
+    #[inline]
     pub fn decoded_size(&self, bytes: usize) -> usize {
         if self.pad.is_some() {
             (bytes / 8).checked_mul(5)
@@ -176,8 +178,8 @@ impl Encoding {
         debug_assert!(input.len() - input_index > 1 || input.is_empty());
         debug_assert!(input.len() - input_index <= INPUT_CHUNK_LEN);
 
-        let mut quintets_leftover = 0;
-        let mut data = 0;
+        let mut buffer: u64 = 0;
+        let mut quintets = 0;
 
         for (i, b) in input[input_index..].iter().enumerate() {
             if let Some(pad) = self.pad {
@@ -190,11 +192,11 @@ impl Encoding {
             if quintet == INVALID_BYTE {
                 return Err(DecodeError::InvalidByte(input_index + i, *b));
             }
-            data |= (quintet as u64) << (64 - (quintets_leftover + 1) * 5);
-            quintets_leftover += 1;
+            buffer |= (quintet as u64) << (64 - (quintets + 1) * 5);
+            quintets += 1;
         }
 
-        let leftover_bits = match quintets_leftover {
+        let bits_to_append = match quintets {
             0 => 0,
             2 => 8,
             4 => 16,
@@ -204,13 +206,14 @@ impl Encoding {
             n => unreachable!("Invalid leftover quintet count: {}", n),
         };
 
-        let mut leftover_bits_appended = 0;
-        while leftover_bits_appended < leftover_bits {
-            let selected_bits = (data >> (56 - leftover_bits_appended)) as u8;
-            output[output_index] = selected_bits;
+        let mut bits_appended = 0;
+        while bits_appended < bits_to_append {
+            let bits = (buffer >> (56 - bits_appended)) as u8;
+
+            output[output_index] = bits;
             output_index += 1;
 
-            leftover_bits_appended += 8;
+            bits_appended += 8;
         }
 
         Ok(output_index)
