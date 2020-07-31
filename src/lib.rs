@@ -27,7 +27,8 @@
     unused_import_braces,
     unused_results,
     variant_size_differences,
-    warnings
+    warnings,
+    rust_2018_idioms
 )]
 
 mod decode;

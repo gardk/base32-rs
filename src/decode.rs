@@ -32,7 +32,7 @@ pub enum DecodeError {
 }
 
 impl fmt::Display for DecodeError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             DecodeError::InvalidByte(i, b) => {
                 write!(fmt, "invalid input byte at index {}: {}", i, b)

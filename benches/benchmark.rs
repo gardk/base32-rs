@@ -6,7 +6,7 @@ use criterion::{
 };
 use rand::Rng;
 
-fn bench_encode(b: &mut Bencher, &size: &usize) {
+fn bench_encode(b: &mut Bencher<'_>, &size: &usize) {
     let input = {
         let mut v: Vec<u8> = vec![0; size];
         rand::thread_rng().fill(v.as_mut_slice());
@@ -15,7 +15,7 @@ fn bench_encode(b: &mut Bencher, &size: &usize) {
     b.iter(|| base32::encode(&input));
 }
 
-fn bench_encode_to_slice(b: &mut Bencher, &size: &usize) {
+fn bench_encode_to_slice(b: &mut Bencher<'_>, &size: &usize) {
     let input = {
         let mut v: Vec<u8> = vec![0; size];
         rand::thread_rng().fill(v.as_mut_slice());
@@ -26,7 +26,7 @@ fn bench_encode_to_slice(b: &mut Bencher, &size: &usize) {
     b.iter(|| STANDARD.encode_to_slice(&mut output, &input));
 }
 
-fn bench_decode(b: &mut Bencher, &size: &usize) {
+fn bench_decode(b: &mut Bencher<'_>, &size: &usize) {
     let input = {
         let mut v: Vec<u8> = vec![0; size];
         rand::thread_rng().fill(v.as_mut_slice());
@@ -35,7 +35,7 @@ fn bench_decode(b: &mut Bencher, &size: &usize) {
     b.iter(|| base32::decode(&input).unwrap());
 }
 
-fn bench_decode_to_slice(b: &mut Bencher, &size: &usize) {
+fn bench_decode_to_slice(b: &mut Bencher<'_>, &size: &usize) {
     let input = {
         let mut v: Vec<u8> = vec![0; size];
         rand::thread_rng().fill(v.as_mut_slice());
