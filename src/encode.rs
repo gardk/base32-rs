@@ -32,14 +32,13 @@ impl Encoding {
         let data = data.as_ref();
 
         let mut buf = vec![0; self.encoded_size(data.len())];
-        let written = self.encode_to_slice(&mut buf, data);
-        let written = self.add_padding(&mut buf[written..], data.len()) + written;
+        let mut written = self.encode_to_slice(&mut buf, data);
+        written += self.add_padding(&mut buf[written..], data.len());
 
         debug_assert_eq!(written, buf.len());
 
         // SAFETY: Since all possible encoding tables are defined statically with valid
         //         ASCII characters, the encoding procedure can't produce invalid UTF-8
-        debug_assert!(buf.iter().all(u8::is_ascii));
         unsafe { String::from_utf8_unchecked(buf) }
     }
 
@@ -127,6 +126,8 @@ impl Encoding {
                 input_index += INPUT_BLOCK_LEN;
             }
         }
+
+        // I know this part is very ugly, but I'm in no mood to do anything about it >:(
 
         const LOW_FIVE_BITS: u8 = 0b11111;
 

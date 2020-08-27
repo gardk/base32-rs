@@ -1,8 +1,8 @@
-use crate::{Encoding, CROCKFORD, EXTENDED_HEX, STANDARD, ZBASE32};
+use crate::{DecodeError, Encoding, CROCKFORD, EXTENDED_HEX, STANDARD, ZBASE32};
 
 #[test]
-fn fuzz() {
-    fn fuzz(config: Encoding) {
+fn fuzz() -> Result<(), DecodeError> {
+    fn fuzz(config: Encoding) -> Result<(), DecodeError> {
         use rand::{distributions::Uniform, Rng};
 
         let mut rng = rand::thread_rng();
@@ -28,26 +28,28 @@ fn fuzz() {
                 .collect();
 
             let encoded = config.encode(&short);
-            let decoded = config.decode(encoded).unwrap();
+            let decoded = config.decode(encoded)?;
 
             assert_eq!(decoded, short);
 
             let encoded = config.encode(&medium);
-            let decoded = config.decode(encoded).unwrap();
+            let decoded = config.decode(encoded)?;
 
             assert_eq!(decoded, medium);
 
             let encoded = config.encode(&long);
-            let decoded = config.decode(encoded).unwrap();
+            let decoded = config.decode(encoded)?;
 
             assert_eq!(decoded, long);
         }
+
+        Ok(())
     }
 
-    fuzz(STANDARD);
-    fuzz(EXTENDED_HEX);
-    fuzz(CROCKFORD);
-    fuzz(ZBASE32);
+    fuzz(STANDARD)?;
+    fuzz(EXTENDED_HEX)?;
+    fuzz(CROCKFORD)?;
+    fuzz(ZBASE32)
 }
 
 #[test]
@@ -86,51 +88,66 @@ fn rfc4648_test_vectors_encode() {
 }
 
 #[test]
-fn rfc4648_test_vectors_decode() {
-    assert_eq!(STANDARD.decode("").unwrap(), b"");
-    assert_eq!(STANDARD.decode("MY======").unwrap(), b"f");
-    assert_eq!(STANDARD.decode("MZXQ====").unwrap(), b"fo");
-    assert_eq!(STANDARD.decode("MZXW6===").unwrap(), b"foo");
-    assert_eq!(STANDARD.decode("MZXW6YQ=").unwrap(), b"foob");
-    assert_eq!(STANDARD.decode("MZXW6YTB").unwrap(), b"fooba");
-    assert_eq!(STANDARD.decode("MZXW6YTBOI======").unwrap(), b"foobar");
+fn rfc4648_test_vectors_decode() -> Result<(), crate::DecodeError> {
+    assert_eq!(STANDARD.decode("")?, b"");
+    assert_eq!(STANDARD.decode("MY======")?, b"f");
+    assert_eq!(STANDARD.decode("MZXQ====")?, b"fo");
+    assert_eq!(STANDARD.decode("MZXW6===")?, b"foo");
+    assert_eq!(STANDARD.decode("MZXW6YQ=")?, b"foob");
+    assert_eq!(STANDARD.decode("MZXW6YTB")?, b"fooba");
+    assert_eq!(STANDARD.decode("MZXW6YTBOI======")?, b"foobar");
 
-    assert_eq!(EXTENDED_HEX.decode("").unwrap(), b"");
-    assert_eq!(EXTENDED_HEX.decode("CO======").unwrap(), b"f");
-    assert_eq!(EXTENDED_HEX.decode("CPNG====").unwrap(), b"fo");
-    assert_eq!(EXTENDED_HEX.decode("CPNMU===").unwrap(), b"foo");
-    assert_eq!(EXTENDED_HEX.decode("CPNMUOG=").unwrap(), b"foob");
-    assert_eq!(EXTENDED_HEX.decode("CPNMUOJ1").unwrap(), b"fooba");
-    assert_eq!(EXTENDED_HEX.decode("CPNMUOJ1E8======").unwrap(), b"foobar");
+    assert_eq!(EXTENDED_HEX.decode("")?, b"");
+    assert_eq!(EXTENDED_HEX.decode("CO======")?, b"f");
+    assert_eq!(EXTENDED_HEX.decode("CPNG====")?, b"fo");
+    assert_eq!(EXTENDED_HEX.decode("CPNMU===")?, b"foo");
+    assert_eq!(EXTENDED_HEX.decode("CPNMUOG=")?, b"foob");
+    assert_eq!(EXTENDED_HEX.decode("CPNMUOJ1")?, b"fooba");
+    assert_eq!(EXTENDED_HEX.decode("CPNMUOJ1E8======")?, b"foobar");
 
-    assert_eq!(CROCKFORD.decode("").unwrap(), b"");
-    assert_eq!(CROCKFORD.decode("CR").unwrap(), b"f");
-    assert_eq!(CROCKFORD.decode("CSQG").unwrap(), b"fo");
-    assert_eq!(CROCKFORD.decode("CSQPY").unwrap(), b"foo");
-    assert_eq!(CROCKFORD.decode("CSQPYRG").unwrap(), b"foob");
-    assert_eq!(CROCKFORD.decode("CSQPYRK1").unwrap(), b"fooba");
-    assert_eq!(CROCKFORD.decode("CSQPYRK1E8").unwrap(), b"foobar");
+    assert_eq!(CROCKFORD.decode("")?, b"");
+    assert_eq!(CROCKFORD.decode("CR")?, b"f");
+    assert_eq!(CROCKFORD.decode("CSQG")?, b"fo");
+    assert_eq!(CROCKFORD.decode("CSQPY")?, b"foo");
+    assert_eq!(CROCKFORD.decode("CSQPYRG")?, b"foob");
+    assert_eq!(CROCKFORD.decode("CSQPYRK1")?, b"fooba");
+    assert_eq!(CROCKFORD.decode("CSQPYRK1E8")?, b"foobar");
 
-    assert_eq!(ZBASE32.decode("").unwrap(), b"");
-    assert_eq!(ZBASE32.decode("ca").unwrap(), b"f");
-    assert_eq!(ZBASE32.decode("c3zo").unwrap(), b"fo");
-    assert_eq!(ZBASE32.decode("c3zs6").unwrap(), b"foo");
-    assert_eq!(ZBASE32.decode("c3zs6ao").unwrap(), b"foob");
-    assert_eq!(ZBASE32.decode("c3zs6aub").unwrap(), b"fooba");
-    assert_eq!(ZBASE32.decode("c3zs6aubqe").unwrap(), b"foobar");
+    assert_eq!(ZBASE32.decode("")?, b"");
+    assert_eq!(ZBASE32.decode("ca")?, b"f");
+    assert_eq!(ZBASE32.decode("c3zo")?, b"fo");
+    assert_eq!(ZBASE32.decode("c3zs6")?, b"foo");
+    assert_eq!(ZBASE32.decode("c3zs6ao")?, b"foob");
+    assert_eq!(ZBASE32.decode("c3zs6aub")?, b"fooba");
+    assert_eq!(ZBASE32.decode("c3zs6aubqe")?, b"foobar");
+
+    Ok(())
 }
 
 #[test]
-fn custom_padding() {
+fn custom_padding_encode() {
     let original = STANDARD.encode("foobar");
 
-    let stripped = original.trim_end_matches('=');
-    let custom = STANDARD.with_padding(None).encode("foobar");
+    assert_eq!(
+        original.trim_end_matches('='),
+        STANDARD.with_padding(None).encode("foobar")
+    );
+    assert_eq!(
+        original.replace('=', "+"),
+        STANDARD.with_padding(Some(b'+')).encode("foobar"),
+    );
+}
 
-    assert_eq!(custom, stripped);
+#[test]
+fn custom_padding_decode() {
+    let original = STANDARD.encode("foobar");
 
-    let replaced = original.replace('=', "+");
-    let custom = STANDARD.with_padding(Some(b'+')).encode("foobar");
-
-    assert_eq!(custom, replaced);
+    assert!(STANDARD
+        .with_padding(None)
+        .decode(original.trim_end_matches('='))
+        .is_ok());
+    assert!(STANDARD
+        .with_padding(Some(b'+'))
+        .decode(original.replace('=', "+"))
+        .is_ok());
 }
