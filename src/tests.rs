@@ -1,55 +1,44 @@
-use crate::{DecodeError, Encoding, CROCKFORD, EXTENDED_HEX, STANDARD, ZBASE32};
+use criterion::black_box;
+use proptest::prelude::*;
 
-#[test]
-fn fuzz() -> Result<(), DecodeError> {
-    fn fuzz(config: Encoding) -> Result<(), DecodeError> {
-        use rand::{distributions::Uniform, Rng};
+use crate::{CROCKFORD, EXTENDED_HEX, STANDARD, ZBASE32};
 
-        let mut rng = rand::thread_rng();
-
-        let data_dist = Uniform::new_inclusive(u8::MIN, u8::MAX);
-
-        let short_dist = Uniform::new_inclusive(1, 24);
-        let medium_dist = Uniform::new_inclusive(64, 256);
-        let long_dist = Uniform::new_inclusive(1024, 8192);
-
-        for _ in 0..3 {
-            let short: Vec<u8> = rng
-                .sample_iter(&data_dist)
-                .take(rng.sample(short_dist))
-                .collect();
-            let medium: Vec<u8> = rng
-                .sample_iter(&data_dist)
-                .take(rng.sample(medium_dist))
-                .collect();
-            let long: Vec<u8> = rng
-                .sample_iter(&data_dist)
-                .take(rng.sample(long_dist))
-                .collect();
-
-            let encoded = config.encode(&short);
-            let decoded = config.decode(encoded)?;
-
-            assert_eq!(decoded, short);
-
-            let encoded = config.encode(&medium);
-            let decoded = config.decode(encoded)?;
-
-            assert_eq!(decoded, medium);
-
-            let encoded = config.encode(&long);
-            let decoded = config.decode(encoded)?;
-
-            assert_eq!(decoded, long);
-        }
-
-        Ok(())
+proptest! {
+    #[test]
+    fn encode_doesnt_crash(s in "\\PC*") {
+        let _ = black_box(STANDARD.encode(&s));
+        let _ = black_box(EXTENDED_HEX.encode(&s));
+        let _ = black_box(CROCKFORD.encode(&s));
+        let _ = black_box(ZBASE32.encode(&s));
     }
 
-    fuzz(STANDARD)?;
-    fuzz(EXTENDED_HEX)?;
-    fuzz(CROCKFORD)?;
-    fuzz(ZBASE32)
+    #[test]
+    fn decode_doesnt_crash(s in "\\PC*") {
+        let _ = black_box(STANDARD.decode(&s));
+        let _ = black_box(EXTENDED_HEX.decode(&s));
+        let _ = black_box(CROCKFORD.decode(&s));
+        let _ = black_box(ZBASE32.decode(&s));
+    }
+
+    #[test]
+    fn decode_standard_is_ok(s in "(?:[A-Z2-7]{8})*(?:[A-Z2-7]{2}={6}|[A-Z2-7]{4}={4}|[A-Z2-7]{5}={3}|[A-Z2-7]{7}=)?") {
+        assert!(STANDARD.decode(s).is_ok());
+    }
+
+    #[test]
+    fn decode_extended_hex_is_ok(s in "(?:[0-9A-V]{8})*(?:[0-9A-V]{2}={6}|[0-9A-V]{4}={4}|[0-9A-V]{5}={3}|[0-9A-V]{7}=)?") {
+        assert!(EXTENDED_HEX.decode(s).is_ok());
+    }
+
+    #[test]
+    fn decode_crockford_is_ok(s in "(?:[0-9A-HJKMNP-TV-Z]{8})*(?:[0-9A-HJKMNP-TV-Z]{2}|[0-9A-HJKMNP-TV-Z]{4}|[0-9A-HJKMNP-TV-Z]{5}|[0-9A-HJKMNP-TV-Z]{7})?") {
+        assert!(CROCKFORD.decode(s).is_ok());
+    }
+
+    #[test]
+    fn decode_zbase32_is_ok(s in "(?:[ybndrfg8ejkmcpqxot1uwisza345h769]{8})*(?:[ybndrfg8ejkmcpqxot1uwisza345h769]{2}|[ybndrfg8ejkmcpqxot1uwisza345h769]{4}|[ybndrfg8ejkmcpqxot1uwisza345h769]{5}|[ybndrfg8ejkmcpqxot1uwisza345h769]{7})?") {
+        assert!(ZBASE32.decode(s).is_ok());
+    }
 }
 
 #[test]

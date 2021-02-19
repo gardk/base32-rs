@@ -62,7 +62,12 @@ impl Encoding {
     pub fn decode(&self, data: impl AsRef<[u8]>) -> Result<Vec<u8>, DecodeError> {
         let data = data.as_ref();
 
-        let mut buf = vec![0; self.decoded_size(data.len())];
+        let len = match self.decoded_size(data.len()) {
+            Some(x) => x,
+            None => return Err(DecodeError::InvalidInputLength),
+        };
+
+        let mut buf = vec![0; len];
         let written = self.decode_to_slice(&mut buf, data)?;
 
         buf.truncate(written);
@@ -72,15 +77,10 @@ impl Encoding {
 
     /// Returns an estimate of how many bytes would be required to store the decoded form
     /// of the given amount of encoded bytes. It will sometimes overestimate how many are
-    /// needed, but never underestimate. Panics if the result would overflow `usize`.
+    /// needed, but never underestimate.
     #[inline]
-    pub fn decoded_size(&self, bytes: usize) -> usize {
-        if self.pad.is_some() {
-            (bytes / 8).checked_mul(5)
-        } else {
-            bytes.checked_mul(5).map(|n| n / 8)
-        }
-        .expect("Overflow while calculating decoded length")
+    pub fn decoded_size(&self, bytes: usize) -> Option<usize> {
+        bytes.checked_mul(5).map(|n| n / 8)
     }
 
     /// Takes a slice of encoded data and decodes it into

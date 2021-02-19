@@ -30,34 +30,33 @@ impl Encoding {
     #[inline]
     pub fn encode(&self, data: impl AsRef<[u8]>) -> String {
         let data = data.as_ref();
+        let encoded_size = self
+            .encoded_size(data.len())
+            .expect("Overflowed while calculating encoded size of input");
 
-        let mut buf = vec![0; self.encoded_size(data.len())];
-        let mut written = self.encode_to_slice(&mut buf, data);
-        written += self.add_padding(&mut buf[written..], data.len());
+        let mut buf = vec![0; encoded_size];
+        let written = self.encode_to_slice(&mut buf, data);
 
         debug_assert_eq!(written, buf.len());
 
-        // SAFETY: Since all possible encoding tables are defined statically with valid
-        //         ASCII characters, the encoding procedure can't produce invalid UTF-8
-        unsafe { String::from_utf8_unchecked(buf) }
+        String::from_utf8(buf).expect("Implementation error")
     }
 
-    /// Calculates the bytes required to store the encoded form of an
-    /// amount of bytes. Panics if the result would overflow `usize`.
+    /// Calculates the required output buffer size when encoding the
+    /// given amount of bytes, returns `None` in case of overflow.
     #[inline]
-    pub fn encoded_size(&self, bytes: usize) -> usize {
+    pub fn encoded_size(self, input_bytes: usize) -> Option<usize> {
         if self.pad.is_some() {
-            bytes
+            input_bytes
                 .checked_add(4)
                 .map(|n| n / 5)
                 .and_then(|n| n.checked_mul(8))
         } else {
-            bytes
+            input_bytes
                 .checked_mul(8)
                 .and_then(|n| n.checked_add(4))
                 .map(|n| n / 5)
         }
-        .expect("Overflow while calculating encoded length")
     }
 
     /// Takes a slice of arbitrary bytes and encodes it according to the
@@ -126,8 +125,6 @@ impl Encoding {
                 input_index += INPUT_BLOCK_LEN;
             }
         }
-
-        // I know this part is very ugly, but I'm in no mood to do anything about it >:(
 
         const LOW_FIVE_BITS: u8 = 0b11111;
 
@@ -211,17 +208,8 @@ impl Encoding {
             ),
         }
 
-        output_index
-    }
-
-    /// Writes padding characters to the output slice according to the
-    /// input length, does nothing if the configuration disables padding. You
-    /// don't need to call this function unless directly calling `encode_to_slice`.
-    #[inline]
-    pub fn add_padding(&self, output: &mut [u8], input_len: usize) -> usize {
         if let Some(pad) = self.pad {
-            let mut output_index = 0;
-            match input_len % 5 {
+            match input.len() % 5 {
                 4 => {
                     output[output_index] = pad;
                     output_index += 1;
@@ -250,10 +238,9 @@ impl Encoding {
                 }
                 _ => {}
             }
-            output_index
-        } else {
-            0
         }
+
+        output_index
     }
 }
 

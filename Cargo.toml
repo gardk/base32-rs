@@ -13,8 +13,9 @@ alloc = []
 std = []
 
 [dev-dependencies]
-criterion = "0.3.3"
-rand = "0.7.3"
+criterion = "0.3.4"
+proptest = "0.10.1"
+rand = { version = "0.8.3", features = ["small_rng"] }
 
 [[bench]]
 name = "benchmark"
